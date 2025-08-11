@@ -1,35 +1,53 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
-    Table,
-    TableBody,
-    TableCaption,
-    TableCell,
-    TableFooter,
-    TableHead,
-    TableHeader,
-    TableRow,
+    Table, TableBody, TableCaption, TableCell, TableFooter,
+    TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import Image from "next/image";
 
-const data = [
-    {
-        id: "001",
-        status: "Tidak Penuh",
-        lokasi: "Jakarta",
-        urlGambar: "/fallback.png",
-    },
-    {
-        id: "002",
-        status: "Penuh",
-        lokasi: "Bandung",
-        urlGambar: "/fallback.png",
-    },
-];
+interface HistoryItem {
+    id: string;
+    status: string;
+    lokasi: string;
+    urlGambar: string;
+}
 
 export function HistoryTable() {
+    const [data, setData] = useState<HistoryItem[]>([]);
     const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        setLoading(true);
+        fetch("/api/history")
+            .then((res) => {
+                if (!res.ok) throw new Error("Gagal mengambil data");
+                return res.json();
+            })
+            .then((json) => setData(json))
+            .catch((err) => setError(err.message))
+            .finally(() => setLoading(false));
+    }, []);
+
+    if (loading) {
+        return (
+            <div className="flex justify-center items-center h-40">
+                <span className="animate-spin rounded-full h-8 w-8 border-4 border-gray-300 border-t-transparent"></span>
+                <span className="ml-3">Memuat data...</span>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="text-center text-red-500">
+                Gagal memuat data: {error}
+            </div>
+        );
+    }
 
     return (
         <>
@@ -55,7 +73,7 @@ export function HistoryTable() {
                                     onClick={() => setFullscreenImage(row.urlGambar)}
                                 >
                                     <Image
-                                        src={row.urlGambar}
+                                        src={row.urlGambar || "/fallback.png"}
                                         alt={row.id}
                                         width={40}
                                         height={40}
@@ -74,7 +92,6 @@ export function HistoryTable() {
                 </TableFooter>
             </Table>
 
-            {/* Fullscreen modal */}
             {fullscreenImage && (
                 <div
                     className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50"
