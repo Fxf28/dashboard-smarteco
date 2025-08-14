@@ -2,6 +2,8 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { v2 as cloudinary, UploadApiResponse, UploadApiErrorResponse } from "cloudinary";
+import { db } from "@/db/drizzle"; // your drizzle db connection file
+import { devices } from "@/db/schema"; // your schema.ts table
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -11,10 +13,12 @@ cloudinary.config({
 
 export async function POST(req: NextRequest) {
   try {
-    const { img } = await req.json();
+    const { img, ip, mac, location, status } = await req.json();
     if (!img || typeof img !== "string") {
       return NextResponse.json({ error: "No image provided" }, { status: 400 });
     }
+
+    const timestamp = new Date();
 
     // Strip "data:image/...;base64," prefix if present
     const base64Data = img.includes(",") ? img.split(",")[1] : img;
@@ -39,13 +43,24 @@ export async function POST(req: NextRequest) {
       uploadStream.end(imageBuffer);
     });
 
+    // Insert into database
+    await db.insert(devices).values({
+      ip,
+      mac,
+      status: status ?? false,
+      location: location ?? null,
+      timestamp,
+      cloudinaryUrl: result.secure_url,
+    });
+
     return NextResponse.json({
       message: "Upload success",
       url: result.secure_url,
-      public_id: result.public_id,
-      format: result.format,
-      width: result.width,
-      height: result.height,
+      ip,
+      mac,
+      status,
+      location,
+      timestamp,
     });
   } catch (err) {
     console.error("Upload failed:", err);
